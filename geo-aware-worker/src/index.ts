@@ -41,35 +41,39 @@ const worker = {
 		// /get-greetings
 		// -------------------------------
 		if (url.pathname === '/get-greetings') {
-			// Safety check (important for local dev)
 			if (!replicateToken) {
-				return new Response(
-					JSON.stringify({
-						error: 'REPLICATE_API_TOKEN is missing',
-					}),
-					{
-						status: 500,
-						headers: {
-							'Content-Type': 'application/json',
-							'Access-Control-Allow-Origin': '*',
-						},
-					}
-				);
+				return new Response(JSON.stringify({ error: 'REPLICATE_API_TOKEN is missing' }), {
+					status: 500,
+					headers: {
+						'Content-Type': 'application/json',
+						'Access-Control-Allow-Origin': '*',
+					},
+				});
 			}
 
 			const prompt = greetingPrompt(metadata);
 
-			let greeting = 'Hello';
+			let greetingData = {
+				regionalGreeting: 'Hello',
+				standardGreeting: 'Hello',
+			};
 
 			try {
-				greeting = await generateGreeting(prompt, replicateToken);
+				const raw = await generateGreeting(prompt, replicateToken);
+
+				// Safely parse JSON from model output
+				const parsed = JSON.parse(raw);
+
+				if (parsed?.regionalGreeting && parsed?.standardGreeting) {
+					greetingData = parsed;
+				}
 			} catch (err) {
-				console.error('Replicate error:', err);
+				console.error('Replicate / JSON parse error:', err);
 			}
 
 			return new Response(
 				JSON.stringify({
-					greeting,
+					...greetingData,
 					country: metadata.country,
 					city: metadata.city,
 					timezone: metadata.timezone,
